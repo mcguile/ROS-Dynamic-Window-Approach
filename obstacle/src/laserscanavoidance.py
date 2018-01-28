@@ -14,7 +14,6 @@ count = Twist() # message that takes the linear and angular velocties of the rob
 # whether to stop and turn, or keep going linearly, and then to publish its
 # current state to the cmd_vel topic
 def callback(msg):
-    start()
     turn(msg)
     vel_pub(count)  # Publish messages to the topic teleop is subscribed to
 
@@ -23,10 +22,10 @@ def turn(msg):
     # Find angle of obstacle that is too close
     minDistance = 31 # max laser range is 30
     obsDirection = 0 # angle of obstacle from robot
-    
+
     # range of robot laser 180:540 to include a large span but not the extreme
     # edges - 360 is directly in front of the robot
-    
+
     for angle, distance in enumerate(msg.ranges[180:540]):
         if distance < minDistance:
             minDistance = distance
@@ -41,6 +40,8 @@ def turn(msg):
         else:
             # Turn left
             count.angular.z = -3
+    else:
+        start()
 
 # On start, go straight with no angular velocity
 def start():
