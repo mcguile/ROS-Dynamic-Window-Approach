@@ -1,4 +1,4 @@
 <launch>
-<node pkg="navigation" type="mv.py" name="move"/>
-<node pkg="obstacle" type="linkedAvoidance.py" name="obstacle"/>
+<node pkg="navigation" type="basicGoToGoal.py" name="move" output="screen"/>
+<node pkg="obstacle" type="linkedAvoidance.py" name="obstacle" output="screen"/>
 </launch>

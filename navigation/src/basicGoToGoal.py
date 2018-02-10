@@ -11,7 +11,6 @@ x = 0.0
 y= 0.0
 theta = 0.0
 goal = Point()
-obstacle = False
 
 def newOdom(msg):
     global x
@@ -28,38 +27,24 @@ def goalCB(msg):
     goal.x = msg.x
     goal.y = msg.y
 
-def laserCB(msg):
-    global obstacle
-    if (msg.angular.z == 0.0):
-        obstacle = False
-    else:
-        obstacle = True
-        print (obstacle)
-
 rospy.init_node("speed_controller")
 sub = rospy.Subscriber("/odom",Odometry,newOdom)
 pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
 subGoal = rospy.Subscriber("/goal_pos", Point, goalCB)
-subLaser = rospy.Subscriber("/obstacle", Twist, laserCB)
 
 speed = Twist()
 r = rospy.Rate(2)
 
 while not rospy.is_shutdown():
-    if (obstacle == False):
-        print ("no obs")
-        inc_x = goal.x - x
-        inc_y = goal.y - y
-        angle_to_goal = atan2(inc_y,inc_x)
+    inc_x = goal.x - x
+    inc_y = goal.y - y
+    angle_to_goal = atan2(inc_y,inc_x)
 
-        if abs(angle_to_goal - theta) > 0.1:
-            speed.linear.x = 0.0
-            speed.angular.z = 0.1
-        else:
-            speed.linear.x = 0.3
-            speed.angular.z = 0.0
-    else:
-        print ("obs")
+    if abs(angle_to_goal - theta) > 0.1:
         speed.linear.x = 0.0
+        speed.angular.z = 0.1
+    else:
+        speed.linear.x = 0.3
+        speed.angular.z = 0.0
     pub.publish(speed)
     r.sleep()

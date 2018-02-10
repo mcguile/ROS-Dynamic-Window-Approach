@@ -33,7 +33,7 @@ def turn(msg):
             # Turn left
             count.angular.z = 1.0
     #else:
-            #count.angular.z = 0.0
+            #start()
 
 # On start, go straight with no angular velocity
 def start():
