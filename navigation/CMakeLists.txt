@@ -9,11 +9,9 @@ project(navigation)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   gazebo_ros
-  gazebo_ros_control
   rospy
   std_msgs
   turtlebot_gazebo
-  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -50,10 +48,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-add_message_files(
-   FILES
-   goal.msg
-)
+#add_message_files(
+#   FILES
+#   goal.msg
+#)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -107,7 +105,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES navigation
-  CATKIN_DEPENDS message_runtime rospy
+  CATKIN_DEPENDS rospy
 #  DEPENDS system_lib
 )
 

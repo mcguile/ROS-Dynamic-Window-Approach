@@ -9,7 +9,6 @@ project(obstacle)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   gazebo_ros
-  gazebo_ros_control
   rospy
   std_msgs
   turtlebot_gazebo

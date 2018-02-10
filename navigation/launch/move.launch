@@ -1,0 +1,4 @@
+<launch>
+<node pkg="navigation" type="mv.py" name="move"/>
+<node pkg="obstacle" type="linkedAvoidance.py" name="obstacle"/>
+</launch>
