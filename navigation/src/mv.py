@@ -43,7 +43,7 @@ subGoal = rospy.Subscriber("/goal_pos", Point, goalCB)
 subLaser = rospy.Subscriber("/obstacle", Twist, laserCB)
 
 speed = Twist()
-r = rospy.Rate(5)
+r = rospy.Rate(2)
 
 while not rospy.is_shutdown():
     if (obstacle == False):
