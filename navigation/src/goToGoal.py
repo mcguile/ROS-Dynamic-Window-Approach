@@ -68,7 +68,19 @@ def setMotion():
     inc_y = goal.y - y
     angle_to_goal = atan2(inc_y,inc_x)
 
-    if abs(angle_to_goal - theta) > 0.1:
+    #error above
+    maxErx = x * 1.05
+    maxEry = y * 1.05
+
+    #error below
+    minErx = x * 0.95
+    minEry = y * 0.95
+
+    if((minErx < x < maxErx) and (minEry < y < maxEry)):
+        speed.linear.x = 0.0
+        speed.angular.z = 0.0
+
+    elif abs(angle_to_goal - theta) > 0.1:
         speed.linear.x = 0.0
         if ((angle_to_goal - theta) < 0):
             speed.angular.z = -0.3
