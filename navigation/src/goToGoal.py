@@ -37,7 +37,7 @@ def laserCB(msg):
 
     # range of robot laser 180:540 to include a large span but not the extreme
     # edges - 360 is directly in front of the robot
-    for angle, distance in enumerate(msg.ranges[260:460]):
+    for angle, distance in enumerate(msg.ranges[200:520]):
         if distance < minDistance:
             minDistance = distance
             obsDirection = angle
@@ -47,16 +47,16 @@ def laserCB(msg):
         #print ("obstacle in front")
         # Too close: stop.
         speed.linear.x = 0
-        if (obsDirection < 100):
+        if (obsDirection < 160):
             # Turn right
-            speed.angular.z = -1.0
+            speed.angular.z = -0.4
         else:
             # Turn left
-            speed.angular.z = 1.0
+            speed.angular.z = 0.4
     else:
         speed.angular.z = 0
         speed.linear.x = 0.3
-        if (msg.ranges[0] < 0.5 or msg.ranges[719] < 0.5):
+        if (msg.ranges[0] < 0.3 or msg.ranges[719] < 0.3):
             #print ("obstacle on my side")
             obstacle = True
         else:
@@ -83,9 +83,9 @@ def setMotion():
     elif abs(angle_to_goal - theta) > 0.1:
         speed.linear.x = 0.0
         if ((angle_to_goal - theta) < 0):
-            speed.angular.z = -0.3
+            speed.angular.z = -0.1
         else:
-            speed.angular.z = 0.3
+            speed.angular.z = 0.1
     else:
         speed.linear.x = 0.3
         speed.angular.z = 0.0
