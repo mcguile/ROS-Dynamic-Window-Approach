@@ -68,19 +68,7 @@ def setMotion():
     inc_y = goal.y - y
     angle_to_goal = atan2(inc_y,inc_x)
 
-    #error above
-    maxErx = x * 1.05
-    maxEry = y * 1.05
-
-    #error below
-    minErx = x * 0.95
-    minEry = y * 0.95
-
-    if((minErx < x < maxErx) and (minEry < y < maxEry)):
-        speed.linear.x = 0.0
-        speed.angular.z = 0.0
-
-    elif abs(angle_to_goal - theta) > 0.1:
+    if abs(angle_to_goal - theta) > 0.1:
         speed.linear.x = 0.0
         if ((angle_to_goal - theta) < 0):
             speed.angular.z = -0.1
@@ -90,7 +78,7 @@ def setMotion():
         speed.linear.x = 0.3
         speed.angular.z = 0.0
 
-rospy.init_node("speed_controller")
+rospy.init_node("goToGoal")
 sub = rospy.Subscriber("/odom",Odometry,newOdom)
 pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
 subGoal = rospy.Subscriber("/goal_pos", Point, goalCB)

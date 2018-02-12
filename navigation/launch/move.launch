@@ -1,4 +1,4 @@
 <launch>
-<node pkg="navigation" type="avObs.py" name="speed_controller" output="screen"/>
-<node pkg="navigation" type="navigation.py" name="robot_cleaner" output="screen"/>
+<node pkg="navigation" type="linkedAvoidObs.py" name="obstacles" output="screen"/>
+<node pkg="navigation" type="linkedGoToGoal.py" name="goToGoal" output="screen"/>
 </launch>

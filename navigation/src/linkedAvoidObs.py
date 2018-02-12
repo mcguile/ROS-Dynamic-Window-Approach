@@ -10,7 +10,7 @@ from sensor_msgs.msg import LaserScan
 
 obstacle = False
 
-#Callback for scan
+# Callback for scan
 def callback(msg):
 
     minDistance = 31 # max laser range is 30
@@ -19,38 +19,41 @@ def callback(msg):
 
     # range of robot laser 180:540 to include a large span but not the extreme
     # edges - 360 is directly in front of the robot
-    for angle, distance in enumerate(msg.ranges[260:460]):
+    for angle, distance in enumerate(msg.ranges[160:560]):
         if distance < minDistance:
             minDistance = distance
             obsDirection = angle
 
     if (minDistance < 0.3):
         obstacle = True
-        #print ("obstacle in front")
+        # Obstacle in front
         # Too close: stop.
         speed.linear.x = 0
-        #Checks if obstacle infront of robot and which direction to go
-        #enum checks between 260 -> 460, 100 is 360 between these
-        if (obsDirection < 100):
+        # Checks if obstacle infront of robot and which direction to go
+        # enum checks between 200 -> 520, 160 is 360 between these
             # Turn right
-            speed.angular.z = -1.0
-        else:
+        if (obsDirection < 100):
+            speed.angular.z = -0.2
+        elif (obsDirection < 200):
+            speed.angular.z = -0.4
             # Turn left
-            speed.angular.z = 1.0
+        elif (obsDirection < 300):
+            speed.angular.z = 0.4
+        else:
+            speed.angular.z = 0.2
     else:
-        #Move forward as obstacle is at the side
-        #or no obstacle
+        # No obstacle in front. Move forward
         speed.angular.z = 0
         speed.linear.x = 0.3
-        #Checks to see if obstacle is at side
-        if (msg.ranges[0] < 0.5 or msg.ranges[719] < 0.5):
+        # Checks to see if obstacle is at side
+        if (msg.ranges[0] < 0.4 or msg.ranges[719] < 0.4):
             obstacle = True
         else:
             obstacle = False
 
     pubLaser.publish(obstacle)
 
-rospy.init_node("robot_cleaner")
+rospy.init_node("obstacles")
 pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
 pubLaser = rospy.Publisher("/obstacle", Bool, queue_size=10)
 subScan = rospy.Subscriber("/scan", LaserScan, callback)
@@ -59,6 +62,6 @@ speed = Twist()
 r = rospy.Rate(2)
 
 while not rospy.is_shutdown():
-    if(obstacle == True):
+    if(obstacle):
         pub.publish(speed)
     r.sleep()
