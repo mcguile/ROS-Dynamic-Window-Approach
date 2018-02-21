@@ -17,7 +17,7 @@ def turn(msg):
 
     # range of robot laser 180:540 to include a large span but not the extreme
     # edges - 360 is directly in front of the robot
-    for angle, distance in enumerate(msg.ranges[260:460]):
+    for angle, distance in enumerate(msg.ranges[156:356]):
         if distance < minDistance:
             minDistance = distance
             obsDirection = angle
@@ -25,12 +25,12 @@ def turn(msg):
     if (minDistance < 0.3):
         # Too close: stop.
         count.linear.x = 0
-        if (obsDirection < 180):
+        if (obsDirection < 100):
             # Turn right
-            count.angular.z = -1
+            count.angular.z = 1
         else:
             # Turn left
-            count.angular.z = 1
+            count.angular.z = -1
     else:
         start()
 

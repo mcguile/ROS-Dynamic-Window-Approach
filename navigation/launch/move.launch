@@ -1,4 +1,4 @@
 <launch>
-<node pkg="navigation" type="linkedAvoidObs.py" name="obstacles" output="screen"/>
-<node pkg="navigation" type="linkedGoToGoal.py" name="goToGoal" output="screen"/>
+<node pkg="navigation" type="linkedAvoidObs0.py" name="obstacles" output="screen"/>
+<node pkg="navigation" type="linkedGoToGoal0.py" name="goToGoal" output="screen"/>
 </launch>

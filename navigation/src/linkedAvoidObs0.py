@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+# PHYSICAL BOT CODE
 import rospy
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
@@ -21,9 +21,7 @@ def callback(msg):
     # edges - 360 is directly in front of the robot
     #PHYSICAL BOT HAS DEGREES OF 512
     #SIMULATION HAS DEGREES OF 720
-    #UNCOMMENT LINE BELOW AND COMMENT NEXT LINE TO USE SIMULATION
-    for angle, distance in enumerate(msg.ranges[113:398]):
-    #for angle, distance in enumerate(msg.ranges[160:560]):
+    for angle, distance in enumerate(msg.ranges[1:510]):
         if distance < minDistance:
             minDistance = distance
             obsDirection = angle
@@ -35,28 +33,20 @@ def callback(msg):
         speed.linear.x = 0
         # Checks if obstacle infront of robot and which direction to go
         # enum checks between 200 -> 520, 160 is 360 between these
+        #NOTE PHYSICAL BOT HAS INVERTED LASER DEGREES RIGHT TO LEFT
+        # THEREFORE ANG VELS INVERTED
             # Turn right
-        #UNCOMMENT LINE BELOW AND COMMENT NEXT LINE TO USE SIMULATION
-        if (obsDirection < 184):
-        #if (obsDirection < 100):
-            speed.angular.z = -0.2
-        elif (obsDirection < 256):
-        #elif (obsDirection < 200):
-            speed.angular.z = -0.4
+        if (obsDirection < 255):
+            speed.angular.z = 1
             # Turn left
-        elif (obsDirection < 327):
-        #elif (obsDirection < 300):
-            speed.angular.z = 0.4
         else:
-            speed.angular.z = 0.2
+            speed.angular.z = -1
     else:
         # No obstacle in front. Move forward
         speed.angular.z = 0
         speed.linear.x = 0.3
         # Checks to see if obstacle is at side
-        #UNCOMMENT LINE BELOW AND COMMENT NEXT LINE TO USE SIMULATION
-        if (msg.ranges[0] < 0.4 or msg.ranges[511] < 0.4):
-        #if (msg.ranges[0] < 0.4 or msg.ranges[719] < 0.4):
+        if (msg.ranges[0] < 0.5 or msg.ranges[511] < 0.5):
             obstacle = True
         else:
             obstacle = False
