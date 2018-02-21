@@ -5,14 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
 
 class Config():
     # simulation parameters
 
     def __init__(self):
         # robot parameter
-        self.max_speed = 0.6  # [m/s]
-        self.min_speed = -0.6  # [m/s]
+        self.max_speed = 0.7  # [m/s]
+        self.min_speed = -0.7  # [m/s]
         self.max_yawrate = math.pi/2  # [rad/s], limit is pi
         self.max_accel = 0.2  # [m/ss]
         self.max_dyawrate = 40.0 * math.pi / 180.0  # [rad/ss]
@@ -25,6 +26,20 @@ class Config():
         self.robot_radius = 0.2  # [m]
         self.x = 0.0
         self.y = 0.0
+
+    def assignOdomCoords(self, msg):
+        self.x = msg.pose.pose.position.x
+        self.y = msg.pose.pose.position.y
+
+class Obstacles():
+    def __init__(self):
+        self.ob = np.zeros(shape=(720,2))
+
+    def assignObs(self, msg):
+        for angle, distance in enumerate(msg.ranges[:]):
+            #calculate x,y coords of obstacles seen and add to matrix
+            #self.ob[angle] =
+            pass
 
 
 def motion(x, u, dt):
@@ -39,7 +54,7 @@ def motion(x, u, dt):
     return x
 
 
-def calc_dynamic_window(x):
+def calc_dynamic_window(x, config):
 
     # Dynamic window from robot specification
     Vs = [config.min_speed, config.max_speed,
@@ -60,7 +75,7 @@ def calc_dynamic_window(x):
     return dw
 
 
-def calc_trajectory(xinit, v, y):
+def calc_trajectory(xinit, v, y, config):
 
     x = np.array(xinit)
     traj = np.array(x)
@@ -74,7 +89,7 @@ def calc_trajectory(xinit, v, y):
     return traj
 
 
-def calc_final_input(x, u, dw, goal, ob):
+def calc_final_input(x, u, dw, config, goal, ob):
 
     xinit = x[:]
     min_cost = 10000.0
@@ -85,10 +100,10 @@ def calc_final_input(x, u, dw, goal, ob):
     # evalucate all trajectory with sampled input in dynamic window
     for v in np.arange(dw[0], dw[1], config.v_reso):
         for w in np.arange(dw[2], dw[3], config.yawrate_reso):
-            traj = calc_trajectory(xinit, v, w)
+            traj = calc_trajectory(xinit, v, w, config)
 
             # calc cost
-            to_goal_cost = calc_to_goal_cost(traj, goal)
+            to_goal_cost = calc_to_goal_cost(traj, goal, config)
             speed_cost = config.speed_cost_gain * \
                 (config.max_speed - traj[-1, 3])
             #ob_cost = calc_obstacle_cost(traj, ob, config)
@@ -108,7 +123,7 @@ def calc_final_input(x, u, dw, goal, ob):
     return min_u, best_traj
 
 
-def calc_obstacle_cost(traj, ob):
+def calc_obstacle_cost(traj, ob, config):
     # calc obstacle cost inf: collistion, 0:free
 
     skip_n = 2
@@ -131,7 +146,7 @@ def calc_obstacle_cost(traj, ob):
     return 1.0 / minr  # OK
 
 
-def calc_to_goal_cost(traj, goal):
+def calc_to_goal_cost(traj, goal, config):
     # calc to goal cost. It is 2D norm.
 
     dy = goal[0] - traj[-1, 0]
@@ -142,51 +157,38 @@ def calc_to_goal_cost(traj, goal):
     return cost
 
 
-def dwa_control(x, u, goal, ob):
+def dwa_control(x, u, config, goal, ob):
     # Dynamic Window control
 
-    dw = calc_dynamic_window(x)
+    dw = calc_dynamic_window(x, config)
 
-    u, traj = calc_final_input(x, u, dw, goal, ob)
+    u, traj = calc_final_input(x, u, dw, config, goal, ob)
 
     return u, traj
 
 
-def plot_arrow(x, y, yaw, length=0.5, width=0.1):
-    plt.arrow(x, y, length * math.cos(yaw), length * math.sin(yaw),
-              head_length=width, head_width=width)
-    plt.plot(x, y)
-
-def odomCB(msg):
-    # Attain current position of robot
-    config.x = msg.pose.pose.position.x
-    config.y = msg.pose.pose.position.y
-
 def main():
     print(__file__ + " start!!")
+    # robot specification
+    config = Config()
+    # position of obstacles
+    ob = Obstacles()
+
+    subOdom = rospy.Subscriber("/odom", Odometry, config.assignOdomCoords)
+    subLaser = rospy.Subscriber("/scan", LaserScan, ob.assignObs)
+    pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
+    speed = Twist()
+
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
     x = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
     # goal position [x(m), y(m)]
     goal = np.array([3, 3])
-    # obstacles [x(m) y(m), ....]
-    ob = np.matrix([[-1, -1],
-                    [0, 2],
-                    [4.0, 2.0],
-                    [5.0, 4.0],
-                    [5.0, 5.0],
-                    [5.0, 6.0],
-                    [5.0, 9.0],
-                    [8.0, 9.0],
-                    [7.0, 9.0],
-                    [12.0, 12.0]
-                    ])
-
+    # initial velocities
     u = np.array([0.0, 0.0])
     traj = np.array(x)
-    speed = Twist()
 
     while not rospy.is_shutdown():
-        u, ltraj = dwa_control(x, u, goal, ob)
+        u, ltraj = dwa_control(x, u, config, goal, ob)
         x[0] = config.x
         x[1] = config.y
         x[2] += u[1] * config.dt
@@ -207,7 +209,4 @@ def main():
 
 if __name__ == '__main__':
     rospy.init_node('dwa')
-    config = Config()
-    sub = rospy.Subscriber("/odom", Odometry, odomCB)
-    pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
     main()
