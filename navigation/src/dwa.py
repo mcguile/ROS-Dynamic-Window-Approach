@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
+from tf.transformations import euler_from_quaternion
 
 class Config():
     # simulation parameters
@@ -26,21 +27,31 @@ class Config():
         self.robot_radius = 0.2  # [m]
         self.x = 0.0
         self.y = 0.0
+        self.th = 0
 
     def assignOdomCoords(self, msg):
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
+        rot_q = msg.pose.pose.orientation
+        (roll,pitch,theta) = euler_from_quaternion ([rot_q.x,rot_q.y,rot_q.z,rot_q.w])
+        self.th = theta
 
 class Obstacles():
     def __init__(self):
-        self.ob = np.zeros(shape=(720,2))
+        self.obst = np.zeros(shape=(720,2))
 
-    def assignObs(self, msg):
+    def assignObs(self, msg, config):
         for angle, distance in enumerate(msg.ranges[:]):
-            #calculate x,y coords of obstacles seen and add to matrix
-            #self.ob[angle] =
-            pass
+            if (distance < 5):
+                ang = (len(msg.ranges)-angle)
+                obsX = config.y + (distance * math.sin(ang))
+                obsY = config.x + (distance * math.cos(ang))
+            else:
+                obsY = 0
+                obsX = 0
 
+            self.obst[angle] = [obsX,obsY]
+        print self.obst[360]
 
 def motion(x, u, dt):
     # motion model
@@ -172,20 +183,22 @@ def main():
     # robot specification
     config = Config()
     # position of obstacles
-    ob = Obstacles()
+    obs = Obstacles()
 
     subOdom = rospy.Subscriber("/odom", Odometry, config.assignOdomCoords)
-    subLaser = rospy.Subscriber("/scan", LaserScan, ob.assignObs)
+    subLaser = rospy.Subscriber("/scan", LaserScan, obs.assignObs, config)
     pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
     speed = Twist()
 
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
     x = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
     # goal position [x(m), y(m)]
-    goal = np.array([3, 3])
+    goal = np.array([6, 6])
     # initial velocities
     u = np.array([0.0, 0.0])
     traj = np.array(x)
+
+    ob = np.matrix([0,0])
 
     while not rospy.is_shutdown():
         u, ltraj = dwa_control(x, u, config, goal, ob)
@@ -206,6 +219,21 @@ def main():
 
     print("Done")
 
+    # code that may be needed elsewhere
+    #scanTheta = ((len(msg.ranges))*(-180/len(msg.ranges))+90)*(math.pi/180)
+    #using scan to map object on global frame
+    #if(abs(theta) > math.pi/2):
+        #if(scanTheta < 0):
+            #objTheta = theta + scanTheta
+        #else:
+            #objTheta = theta - scanTheta
+    #else:
+        #objTheta = theta + scanTheta
+    #if objectrange is out of global range convert back
+    #if(objTheta < -180):
+        #objTheta = objTheta + 360
+    #if(objTheta > 180):
+        #objTheta = objTheta - 360
 
 if __name__ == '__main__':
     rospy.init_node('dwa')
