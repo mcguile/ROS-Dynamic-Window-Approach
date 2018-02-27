@@ -14,20 +14,20 @@ class Config():
     def __init__(self):
         # robot parameter
         self.max_speed = 0.7  # [m/s]
-        self.min_speed = -0.7  # [m/s]
-        self.max_yawrate = math.pi/2  # [rad/s], limit is pi
+        self.min_speed = 0  # [m/s]
+        self.max_yawrate = 40 * math.pi / 180.0  # [rad/s], limit is pi
         self.max_accel = 0.2  # [m/ss]
         self.max_dyawrate = 40.0 * math.pi / 180.0  # [rad/ss]
         self.v_reso = 0.01  # [m/s]
         self.yawrate_reso = 0.1 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s]
         self.predict_time = 3.0  # [s]
-        self.to_goal_cost_gain = 1.0
+        self.to_goal_cost_gain = 0.7
         self.speed_cost_gain = 1.0
-        self.robot_radius = 0.2  # [m]
-        self.x = 0.0
-        self.y = 0.0
-        self.th = 0
+        self.robot_radius = 0.7  # [m]
+        #self.x = 0.0
+        #self.y = 0.0
+        #self.th = 0
 
     def assignOdomCoords(self, msg):
         self.x = msg.pose.pose.position.x
@@ -106,7 +106,7 @@ def calc_final_input(x, u, dw, config, goal, ob):
     min_cost = 10000.0
     min_u = u
     min_u[0] = 0.0
-    best_traj = np.array([x])
+    best_traj = np.array([x]) #Not xinit?
 
     # evalucate all trajectory with sampled input in dynamic window
     for v in np.arange(dw[0], dw[1], config.v_reso):
@@ -117,15 +117,18 @@ def calc_final_input(x, u, dw, config, goal, ob):
             to_goal_cost = calc_to_goal_cost(traj, goal, config)
             speed_cost = config.speed_cost_gain * \
                 (config.max_speed - traj[-1, 3])
-            #ob_cost = calc_obstacle_cost(traj, ob, config)
+            ob_cost = calc_obstacle_cost(traj, ob, config)
             #  print(ob_cost)
 
-            final_cost = to_goal_cost + speed_cost# + ob_cost
+            final_cost = to_goal_cost + speed_cost + ob_cost
+
+            #print(final_cost, min_cost)
 
             # search minimum trajectory
             if min_cost >= final_cost:
                 min_cost = final_cost
                 min_u = [v, w]
+                #print(min_u)
                 best_traj = traj
 
     #  print(min_u)
@@ -137,24 +140,33 @@ def calc_final_input(x, u, dw, config, goal, ob):
 def calc_obstacle_cost(traj, ob, config):
     # calc obstacle cost inf: collistion, 0:free
 
-    skip_n = 2
+    skip_n = 4
     minr = float("inf")
 
+
+
     for ii in range(0, len(traj[:, 1]), skip_n):
+        #print(traj[:, :])
         for i in range(len(ob[:, 0])):
+            #print(len(ob[:, 0]))
             ox = ob[i, 0]
             oy = ob[i, 1]
             dx = traj[ii, 0] - ox
             dy = traj[ii, 1] - oy
 
+            #print(dx, dy)
+
             r = math.sqrt(dx**2 + dy**2)
+
             if r <= config.robot_radius:
+                print("collisiton")
                 return float("Inf")  # collisiton
 
             if minr >= r:
                 minr = r
 
-    return 1.0 / minr  # OK
+    #print(1.0 / minr)
+    return 1.0 / float(minr)  # OK
 
 
 def calc_to_goal_cost(traj, goal, config):
@@ -183,22 +195,29 @@ def main():
     # robot specification
     config = Config()
     # position of obstacles
-    obs = Obstacles()
+    #obs = Obstacles()
 
     subOdom = rospy.Subscriber("/odom", Odometry, config.assignOdomCoords)
-    subLaser = rospy.Subscriber("/scan", LaserScan, obs.assignObs, config)
+    #subLaser = rospy.Subscriber("/scan", LaserScan, obs.assignObs, config)
     pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
     speed = Twist()
 
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
-    x = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+    x = np.array([0.0, 0.0, math.pi/16.0, 0.0, 0.0])
     # goal position [x(m), y(m)]
-    goal = np.array([6, 6])
+    goal = np.array([-6, -1])
     # initial velocities
     u = np.array([0.0, 0.0])
     traj = np.array(x)
 
-    ob = np.matrix([0,0])
+    ob = np.matrix([[-2,0],
+                    [-2,-1],
+                    [-2,1],
+                    [-3,0],
+                    [-4,0]])
+
+    r = rospy.Rate(100)
+
 
     while not rospy.is_shutdown():
         u, ltraj = dwa_control(x, u, config, goal, ob)
@@ -217,23 +236,9 @@ def main():
             print("Goal!!")
             break
 
+        #r.sleep()
     print("Done")
 
-    # code that may be needed elsewhere
-    #scanTheta = ((len(msg.ranges))*(-180/len(msg.ranges))+90)*(math.pi/180)
-    #using scan to map object on global frame
-    #if(abs(theta) > math.pi/2):
-        #if(scanTheta < 0):
-            #objTheta = theta + scanTheta
-        #else:
-            #objTheta = theta - scanTheta
-    #else:
-        #objTheta = theta + scanTheta
-    #if objectrange is out of global range convert back
-    #if(objTheta < -180):
-        #objTheta = objTheta + 360
-    #if(objTheta > 180):
-        #objTheta = objTheta - 360
 
 if __name__ == '__main__':
     rospy.init_node('dwa')

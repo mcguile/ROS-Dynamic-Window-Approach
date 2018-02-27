@@ -55,10 +55,21 @@ def setMotion():
         inc_y = goal.y - y
         angle_to_goal = atan2(inc_y,inc_x)
         # Check if robot is facing goal
-        if abs(angle_to_goal - theta) > 0.1:
+        angle_to_move = theta - angle_to_goal
+
+        print(angle_to_move)
+
+        if(angle_to_move < (-1 * 3.1416)):
+            angle_to_move = angle_to_move + (2*3.1416)
+        if(angle_to_move > 3.1416):
+            angle_to_move = angle_to_move - (2*3.1416)
+
+
+
+        if angle_to_move > 0.1:
             speed.linear.x = 0.0
             # Adjust robot to face goal
-            if ((angle_to_goal - theta) < 0):
+            if angle_to_move < 0:
                 speed.angular.z = -0.3
             else:
                 speed.angular.z = 0.3
