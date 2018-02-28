@@ -15,13 +15,13 @@ class Config():
         # robot parameter
         #NOTE good params:
         #NOTE 0.3,0,40*pi/180,0.2,40*pi/180,0.01,5*pi/180,0.1,3,1,1,0.3
-        self.max_speed = 0.3  # [m/s]
+        self.max_speed = 0.2  # [m/s]
         self.min_speed = 0  # [m/s]
-        self.max_yawrate = 40 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.2  # [m/ss]
-        self.max_dyawrate = 40.0 * math.pi / 180.0  # [rad/ss]
+        self.max_yawrate = 30.0 * math.pi / 180.0  # [rad/s]
+        self.max_accel = 0.1  # [m/ss]
+        self.max_dyawrate = 30.0 * math.pi / 180.0  # [rad/ss]
         self.v_reso = 0.01  # [m/s]
-        self.yawrate_reso = 5.0 * math.pi / 180.0  # [rad/s]
+        self.yawrate_reso = 4.0 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s]
         self.predict_time = 3.0  # [s]
         self.to_goal_cost_gain = 1.0
@@ -41,14 +41,14 @@ class Config():
 
 class Obstacles():
     def __init__(self):
-        self.obst = np.zeros(shape=(6,2))
+        self.obst = np.zeros(shape=(10,2))
 
     def assignObs(self, msg, config):
         counter = 0
         deg = msg.ranges
-        for angle in range(0,len(deg),len(deg)/5):
+        for angle in range(0,len(deg),len(deg)/10):
             distance = deg[angle]
-            if (distance < 2):
+            if (distance < 3):
                 angle = angle/4 * math.pi / 180
                 obsX = config.x + (distance * math.sin(angle))
                 if (angle > 90):
@@ -58,8 +58,8 @@ class Obstacles():
             else:
                 obsY = 100
                 obsX = 100
-            counter += 1
             self.obst[counter] = [obsX,obsY]
+            counter += 1
 
 def motion(x, u, dt):
     # motion model
@@ -182,10 +182,10 @@ def main():
     # robot specification
     config = Config()
     # position of obstacles
-    #obs = Obstacles()
+    obs = Obstacles()
 
     subOdom = rospy.Subscriber("/odom", Odometry, config.assignOdomCoords)
-    #subLaser = rospy.Subscriber("/scan", LaserScan, obs.assignObs, config)
+    subLaser = rospy.Subscriber("/scan", LaserScan, obs.assignObs, config)
     pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
     speed = Twist()
 
@@ -215,7 +215,7 @@ def main():
     r = rospy.Rate(10)
 
     while not rospy.is_shutdown():
-        u = dwa_control(x, u, config, goal, ob)
+        u = dwa_control(x, u, config, goal, obs.obst)
         x[0] = config.x
         x[1] = config.y
         x[2] = config.th
