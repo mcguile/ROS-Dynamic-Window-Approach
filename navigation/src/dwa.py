@@ -14,7 +14,8 @@ class Config():
     def __init__(self):
         # robot parameter
         #NOTE good params:
-        #NOTE 0.3,0,40*pi/180,0.2,40*pi/180,0.01,5*pi/180,0.1,3,1,1,0.3
+        #NOTE hard obs 0.3,0,40*pi/180,0.2,40*pi/180,0.01,5*pi/180,0.1,3,1,1,0.3
+        #NOTE laser obs 0.2,0,30*pi/180,0.1,30*pi/180,0.01,4*pi/180,0.1,3,1,1,0.3
         self.max_speed = 0.2  # [m/s]
         self.min_speed = 0  # [m/s]
         self.max_yawrate = 30.0 * math.pi / 180.0  # [rad/s]
@@ -41,25 +42,44 @@ class Config():
 
 class Obstacles():
     def __init__(self):
-        self.obst = np.zeros(shape=(10,2))
+        self.obst = set()
+
+    def myRange(self,start,end,step):
+        i = start
+        while i < end:
+            yield i
+            i += step
+        yield end
 
     def assignObs(self, msg, config):
-        counter = 0
-        deg = msg.ranges
-        for angle in range(0,len(deg),len(deg)/10):
-            distance = deg[angle]
-            if (distance < 3):
-                angle = angle/4 * math.pi / 180
-                obsX = config.x + (distance * math.sin(angle))
-                if (angle > 90):
-                    obsY = config.y - (distance * math.cos(angle))
+        deg = len(msg.ranges)
+        for angle in self.myRange(0,deg-1,deg/6):
+            distance = msg.ranges[angle]
+            if (distance < 6):
+                # angle of obstacle wrt robot
+                scanTheta = (angle/4.0 + deg*(-180.0/deg)+90.0) *math.pi/180.0
+                # angle of obstacle wrt global frame
+                objTheta = config.th - scanTheta
+                # back quadrant negative X negative Y
+                if (objTheta < -math.pi):
+                    # e.g -405 degrees >> 135 degrees
+                    objTheta = objTheta + 1.5*math.pi
+                # back quadrant negative X positve Y
+                elif (objTheta > math.pi):
+                    objTheta = objTheta - 1.5*math.pi
+
+                # round coords to nearest 0.5
+                obsX = round((config.x + (distance * math.cos(abs(objTheta))))*2)/2
+                # determine direction of Y coord
+                if (objTheta < 0):
+                    obsY = round((config.y - (distance * math.sin(abs(objTheta))))*2)/2
                 else:
-                    obsY = config.y + (distance * math.cos(angle))
-            else:
-                obsY = 100
-                obsX = 100
-            self.obst[counter] = [obsX,obsY]
-            counter += 1
+                    obsY = round((config.y + (distance * math.sin(abs(objTheta))))*2)/2
+
+                # add coords to set so as to only take unique obstacles
+                self.obst.add((obsX,obsY))
+                #print self.obst
+
 
 def motion(x, u, dt):
     # motion model
@@ -140,9 +160,9 @@ def calc_obstacle_cost(traj, ob, config):
     minr = float("inf")
 
     for ii in range(0, len(traj[:, 1]), skip_n):
-        for i in range(len(ob[:, 0])):
-            ox = ob[i, 0]
-            oy = ob[i, 1]
+        for i in ob.copy():
+            ox = i[0]
+            oy = i[1]
             dx = traj[ii, 0] - ox
             dy = traj[ii, 1] - oy
 
@@ -192,10 +212,10 @@ def main():
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
     x = np.array([config.x, config.y, config.th, 0.0, 0.0])
     # goal position [x(m), y(m)]
-    goal = np.array([8,-4])
+    goal = np.array([9,0])
     # initial velocities
     u = np.array([0.0, 0.0])
-    #ob = np.matrix([[1,-0.5],[1,0],[1,0.5]])
+
     ob = np.matrix([[2,0],[2,0.5],[2,1],
                     [3,-2.5],[3,-2],[3,-1.5],
                     [3,-1],[3,-0.5],[3,0],
@@ -229,6 +249,9 @@ def main():
         if math.sqrt((x[0] - goal[0])**2 + (x[1] - goal[1])**2) \
             <= config.robot_radius:
             print("Goal!!")
+            speed.linear.x = 0
+            speed.angular.z = 0
+            pub.publish(speed)
             break
 
         r.sleep()
