@@ -20,7 +20,7 @@ class Config():
         self.r = rospy.Rate(2)
         self.pubTele = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
         self.pubLaser = rospy.Publisher("/obstacle", Bool, queue_size=10)
-        self.subScan = rospy.Subscriber("/scan", LaserScan, config.callback)
+        self.subScan = rospy.Subscriber("/scan", LaserScan, self.callback)
 
     # Callback for scan
     def callback(self,msg):
