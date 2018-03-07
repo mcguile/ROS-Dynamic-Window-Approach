@@ -25,9 +25,9 @@ class Config():
         self.yawrate_reso = 4.0 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s]
         self.predict_time = 3.0  # [s]
-        self.to_goal_cost_gain = 1.0
+        self.to_goal_cost_gain = 0.5
         self.speed_cost_gain = 1.0
-        self.robot_radius = 0.3  # [m]
+        self.robot_radius = 0.25  # [m]
         self.x = 0.0
         self.y = 0.0
         self.th = 0.0
@@ -55,7 +55,7 @@ class Obstacles():
         deg = len(msg.ranges)
         for angle in self.myRange(0,deg-1,deg/6):
             distance = msg.ranges[angle]
-            if (distance < 6):
+            if (distance < 3):
                 # angle of obstacle wrt robot
                 scanTheta = (angle/4.0 + deg*(-180.0/deg)+90.0) *math.pi/180.0
                 # angle of obstacle wrt global frame
@@ -69,12 +69,12 @@ class Obstacles():
                     objTheta = objTheta - 1.5*math.pi
 
                 # round coords to nearest 0.5
-                obsX = round((config.x + (distance * math.cos(abs(objTheta))))*2)/2
+                obsX = round((config.x + (distance * math.cos(abs(objTheta))))*4)/4
                 # determine direction of Y coord
                 if (objTheta < 0):
-                    obsY = round((config.y - (distance * math.sin(abs(objTheta))))*2)/2
+                    obsY = round((config.y - (distance * math.sin(abs(objTheta))))*4)/4
                 else:
-                    obsY = round((config.y + (distance * math.sin(abs(objTheta))))*2)/2
+                    obsY = round((config.y + (distance * math.sin(abs(objTheta))))*4)/4
 
                 # add coords to set so as to only take unique obstacles
                 self.obst.add((obsX,obsY))
@@ -160,9 +160,12 @@ def calc_obstacle_cost(traj, ob, config):
     minr = float("inf")
 
     for ii in range(0, len(traj[:, 1]), skip_n):
+        #for i in range(len(ob[:,0])):
         for i in ob.copy():
             ox = i[0]
             oy = i[1]
+            #ox = ob[i,0]
+            #oy = ob[i,1]
             dx = traj[ii, 0] - ox
             dy = traj[ii, 1] - oy
 
@@ -179,9 +182,20 @@ def calc_obstacle_cost(traj, ob, config):
 
 def calc_to_goal_cost(traj, goal, config):
     # calc to goal cost. It is 2D norm.
+    if (goal[0] >= 0 and traj[-1,0] < 0):
+        dx = goal[0] - traj[-1,0]
+    elif (goal[0] < 0 and traj[-1,0] >= 0):
+        dx = traj[-1,0] - goal[0]
+    else:
+        dx = abs(goal[0] - traj[-1,0])
 
-    dy = goal[0] - traj[-1, 0]
-    dx = goal[1] - traj[-1, 1]
+    if (goal[1] >= 0 and traj[-1,1] < 0):
+        dy = goal[1] - traj[-1,1]
+    elif (goal[1] < 0 and traj[-1,1] >= 0):
+        dy = traj[-1,1] - goal[1]
+    else:
+        dy = abs(goal[1] - traj[-1,1])
+
     goal_dis = math.sqrt(dx**2 + dy**2)
     cost = config.to_goal_cost_gain * goal_dis
     return cost
@@ -212,25 +226,9 @@ def main():
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
     x = np.array([config.x, config.y, config.th, 0.0, 0.0])
     # goal position [x(m), y(m)]
-    goal = np.array([9,0])
+    goal = np.array([-3,0])
     # initial velocities
     u = np.array([0.0, 0.0])
-
-    ob = np.matrix([[2,0],[2,0.5],[2,1],
-                    [3,-2.5],[3,-2],[3,-1.5],
-                    [3,-1],[3,-0.5],[3,0],
-                    [3,0.5],[3,1],[3,1.5],
-                    [1,-4],[1,-4.5],[1,-5],
-                    [1,-5.5],[1,-6],[1.5,-4],
-                    [2,-4],[2,-4.5],[2,-5],
-                    [2.5,-5],[3,-5],[3,-5.5],
-                    [3,-6],[5,-5],[5.5,-5],
-                    [6,-5],[6.5,-5],[7,-5],
-                    [7.5,-5],[8,-5],[8.5,-5],
-                    [9,-5],[5,-5.5],[5,-6],
-                    [6,-2],[6,-2.5],[6,-3],
-                    [6.5,-3],[7,-3],[7.5,-3],
-                    [8,-3]])
 
     r = rospy.Rate(10)
 
@@ -249,8 +247,8 @@ def main():
         if math.sqrt((x[0] - goal[0])**2 + (x[1] - goal[1])**2) \
             <= config.robot_radius:
             print("Goal!!")
-            speed.linear.x = 0
-            speed.angular.z = 0
+            speed.linear.x = 0.0
+            speed.angular.z = 0.0
             pub.publish(speed)
             break
 
