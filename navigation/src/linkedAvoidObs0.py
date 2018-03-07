@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Basic node to allow avoidance of obstacle. 
+# Basic node to allow avoidance of obstacle.
 # Robot will move linearly until encountering obstacle,
 # where it will stop, turn, and move linearly again.
 # PHYSICAL BOT CODE
@@ -14,13 +14,13 @@ from sensor_msgs.msg import LaserScan
 
 class Config():
     def __init__(self):
-        # Obstacle identifier, passed to a topic
-        self.obstacle = False
-        self.speed = Twist()
-        self.r = rospy.Rate(2)
+        # Init subscribers and publishers
         self.pubTele = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
         self.pubLaser = rospy.Publisher("/obstacle", Bool, queue_size=10)
         self.subScan = rospy.Subscriber("/scan", LaserScan, self.callback)
+        self.obstacle = False   # Obstacle identifier, passed to a topic
+        self.speed = Twist()    # Teleop velocites
+        self.r = rospy.Rate(2)  # Refresh rate
 
     # Callback for scan
     def callback(self,msg):
@@ -36,19 +36,19 @@ class Config():
                 minDistance = distance
                 obsDirection = angle
 
-        if (minDistance < 0.3):
+        if (minDistance < 0.4):
             # Obstacle in front: stop.
             self.obstacle = True
             self.speed.linear.x = 0
             # Check which direction to go
             # NOTE PHYSICAL BOT HAS INVERTED LASER DEGREES RIGHT TO LEFT
             # THEREFORE ANGULAR VELS INVERTED
-                # Turn right
-            if (obsDirection < len(msg.ranges)/2:
-                self.speed.angular.z = 1
                 # Turn left
+            if (obsDirection < len(msg.ranges)/2):
+                self.speed.angular.z = -0.3
+                # Turn right
             else:
-                self.speed.angular.z = -1
+                self.speed.angular.z = 0.3
         else:
             # No obstacle in front. Move forward
             self.speed.angular.z = 0
@@ -59,16 +59,14 @@ class Config():
             else:
                 self.obstacle = False
 
-        self.pubLaser.publish(self.obstacle)
-
 def main():
     config = Config()
-    
     while not rospy.is_shutdown():
         if(config.obstacle):
             config.pubTele.publish(config.speed)
+        config.pubLaser.publish(config.obstacle)
         config.r.sleep()
-    
-if __name__ = '__main__':
+
+if __name__ == '__main__':
     rospy.init_node("obstacles")
     main()
