@@ -14,8 +14,7 @@ class Config():
     def __init__(self):
         # robot parameter
         #NOTE good params:
-        #NOTE hard obs 0.3,0,40*pi/180,0.2,40*pi/180,0.01,5*pi/180,0.1,3,1,1,0.3
-        #NOTE laser obs 0.2,0,30*pi/180,0.1,30*pi/180,0.01,4*pi/180,0.1,3,1,1,0.3
+        #NOTE laser obs 0.2,0,30*pi/180,0.1,30*pi/180,0.01,4*pi/180,0.1,3,0.2,2.0,0.2,0.15
         self.max_speed = 0.2  # [m/s]
         self.min_speed = 0  # [m/s]
         self.max_yawrate = 30.0 * math.pi / 180.0  # [rad/s]
@@ -25,9 +24,10 @@ class Config():
         self.yawrate_reso = 4.0 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s]
         self.predict_time = 3.0  # [s]
-        self.to_goal_cost_gain = 0.5
-        self.speed_cost_gain = 1.0
-        self.robot_radius = 0.25  # [m]
+        self.to_goal_cost_gain = 0.2
+        self.speed_cost_gain = 2.0
+        self.obs_cost_gain = 0.2
+        self.robot_radius = 0.15  # [m]
         self.x = 0.0
         self.y = 0.0
         self.th = 0.0
@@ -142,7 +142,7 @@ def calc_final_input(x, u, dw, config, goal, ob):
             speed_cost = config.speed_cost_gain * \
                 (config.max_speed - traj[-1, 3])
 
-            ob_cost = calc_obstacle_cost(traj, ob, config)
+            ob_cost = calc_obstacle_cost(traj, ob, config) * config.obs_cost_gain
 
             final_cost = to_goal_cost + speed_cost + ob_cost
 
@@ -226,10 +226,9 @@ def main():
     # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
     x = np.array([config.x, config.y, config.th, 0.0, 0.0])
     # goal position [x(m), y(m)]
-    goal = np.array([-3,0])
+    goal = np.array([-5,1])
     # initial velocities
     u = np.array([0.0, 0.0])
-
     r = rospy.Rate(10)
 
     while not rospy.is_shutdown():
