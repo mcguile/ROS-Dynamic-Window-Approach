@@ -22,10 +22,10 @@ class Config():
         self.v_reso = 0.01  # [m/s]
         self.yawrate_reso = 1.0 * math.pi / 180.0  # [rad/s]
         self.dt = 0.1  # [s]
-        self.predict_time = 1.5  # [s]
-        self.to_goal_cost_gain = 0.4 #lower = detour
+        self.predict_time = 3.0  # [s]
+        self.to_goal_cost_gain = 0.15 #lower = detour
         self.speed_cost_gain = 1.0 #lower = faster
-        self.obs_cost_gain = 0.8 #lower = fearless
+        self.obs_cost_gain = 0.1 #lower = fearless
         self.robot_radius = 0.15  # [m]
         self.x = 0.0
         self.y = 0.0
@@ -60,12 +60,12 @@ class Obstacles():
 
     def assignObs(self, msg, config):
         deg = len(msg.ranges)
-        self.obst = set()   # reset the obstacle set so it doesn't get too big
-        for angle in self.myRange(0,deg-1,16):
+        self.obst = set()
+        for angle in self.myRange(0,deg-1,deg/12):
             distance = msg.ranges[angle]
             if (distance < 4):
                 # angle of obstacle wrt robot
-                scanTheta = (angle/2.844 + deg*(-180.0/deg)+90.0) *math.pi/180.0
+                scanTheta = (angle/4.0 + deg*(-180.0/deg)+90.0) *math.pi/180.0
                 # angle of obstacle wrt global frame
                 objTheta = config.th - scanTheta
                 # back quadrant negative X negative Y
@@ -79,7 +79,7 @@ class Obstacles():
                 # round coords to nearest 0.5
                 obsX = round((config.x + (distance * math.cos(abs(objTheta))))*8)/8
                 # determine direction of Y coord
-                if (objTheta > 0):
+                if (objTheta < 0):
                     obsY = round((config.y - (distance * math.sin(abs(objTheta))))*8)/8
                 else:
                     obsY = round((config.y + (distance * math.sin(abs(objTheta))))*8)/8
