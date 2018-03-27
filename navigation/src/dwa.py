@@ -13,28 +13,30 @@ class Config():
     def __init__(self):
         # robot parameter
         #NOTE good params:
-        #NOTE 0.2,0,30*pi/180,0.15,30*pi/180,0.01,1*pi/180,0.1,3,0.15,1.0,0.2,0.15
-        self.max_speed = 0.2  # [m/s]
-        self.min_speed = 0.0  # [m/s]
-        self.max_yawrate = 30.0 * math.pi / 180.0  # [rad/s]
-        self.max_accel = 0.15  # [m/ss]
-        self.max_dyawrate = 30.0 * math.pi / 180.0  # [rad/ss]
-        self.v_reso = 0.01  # [m/s]
-        self.yawrate_reso = 1.0 * math.pi / 180.0  # [rad/s]
+        #NOTE 0.55,0.1,1.0,1.6,3.2,0.15,0.05,0.1,1.7,2.4,0.1,3.2,0.18
+        self.max_speed = 0.55  # [m/s]
+        self.min_speed = 0.1  # [m/s]
+        self.max_yawrate = 1.0  # [rad/s]
+        self.max_accel = 1.6  # [m/ss]
+        self.max_dyawrate = 3.2  # [rad/ss]
+        self.v_reso = 0.15  # [m/s]
+        self.yawrate_reso = 0.05  # [rad/s]
         self.dt = 0.1  # [s]
-        self.predict_time = 1.5  # [s]
-        self.to_goal_cost_gain = 0.4 #lower = detour
-        self.speed_cost_gain = 1.0 #lower = faster
-        self.obs_cost_gain = 0.8 #lower = fearless
-        self.robot_radius = 0.15  # [m]
+        self.predict_time = 1.7  # [s]
+        self.to_goal_cost_gain = 2.4 #lower = detour
+        self.speed_cost_gain = 0.1 #lower = faster
+        self.obs_cost_gain = 3.2 #lower z= fearless
+        self.robot_radius = 0.18  # [m]
         self.x = 0.0
         self.y = 0.0
         self.th = 0.0
         self.goalX = 0.0
         self.goalY = 0.0
-        self.r = rospy.Rate(10)
+        self.r = rospy.Rate(20)
 
+    # Callback for Odometry
     def assignOdomCoords(self, msg):
+        # X- and Y- coords and pose of robot fed back into the robot config
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
         rot_q = msg.pose.pose.orientation
@@ -42,15 +44,18 @@ class Config():
             euler_from_quaternion ([rot_q.x,rot_q.y,rot_q.z,rot_q.w])
         self.th = theta
 
-    # Callback for attaining goal co-ordinates from Rviz
+    # Callback for attaining goal co-ordinates from Rviz Publish Point
     def goalCB(self,msg):
         self.goalX = msg.point.x
         self.goalY = msg.point.y
 
 class Obstacles():
     def __init__(self):
+        # Set of coordinates of obstacles in view
         self.obst = set()
 
+    # Custom range implementation to loop over LaserScan degrees with
+    # a step and include the final degree
     def myRange(self,start,end,step):
         i = start
         while i < end:
@@ -58,13 +63,17 @@ class Obstacles():
             i += step
         yield end
 
+    # Callback for LaserScan
     def assignObs(self, msg, config):
-        deg = len(msg.ranges)
-        self.obst = set()   # reset the obstacle set so it doesn't get too big
+        deg = len(msg.ranges)   # Number of degrees - varies in Sim vs real world
+        self.obst = set()   # reset the obstacle set to only keep visible objects
         for angle in self.myRange(0,deg-1,16):
             distance = msg.ranges[angle]
+            # only record obstacles that are within 4 metres away
             if (distance < 4):
                 # angle of obstacle wrt robot
+                # angle/2.844 is to normalise the 512 degrees in real world
+                # laser from 0 to 180
                 scanTheta = (angle/2.844 + deg*(-180.0/deg)+90.0) *math.pi/180.0
                 # angle of obstacle wrt global frame
                 objTheta = config.th - scanTheta
@@ -76,7 +85,7 @@ class Obstacles():
                 elif (objTheta > math.pi):
                     objTheta = objTheta - 1.5*math.pi
 
-                # round coords to nearest 0.5
+                # round coords to nearest 0.125m
                 obsX = round((config.x + (distance * math.cos(abs(objTheta))))*8)/8
                 # determine direction of Y coord
                 if (objTheta > 0):
@@ -88,10 +97,10 @@ class Obstacles():
                 self.obst.add((obsX,obsY))
                 #print self.obst
 
-
+# Model to determine the expected position of the robot after moving along trajectory
 def motion(x, u, dt):
     # motion model
-
+    # x = [x(m), y(m), theta(rad), v(m/s), omega(rad/s)]
     x[0] += u[0] * math.cos(x[2]) * dt
     x[1] += u[0] * math.sin(x[2]) * dt
     x[2] += u[1] * dt
@@ -100,7 +109,7 @@ def motion(x, u, dt):
 
     return x
 
-
+# Determine the dynamic window from robot configurations
 def calc_dynamic_window(x, config):
 
     # Dynamic window from robot specification
@@ -119,11 +128,11 @@ def calc_dynamic_window(x, config):
 
     return dw
 
-
+# Calculate a trajectory sampled across a prediction time
 def calc_trajectory(xinit, v, y, config):
 
     x = np.array(xinit)
-    traj = np.array(x)
+    traj = np.array(x)  # many motion models stored per trajectory
     time = 0
     while time <= config.predict_time:
         x = motion(x, [v, y], config.dt)
@@ -132,7 +141,7 @@ def calc_trajectory(xinit, v, y, config):
 
     return traj
 
-
+# Calculate trajectory, costings, and return velocities to apply to robot
 def calc_final_input(x, u, dw, config, ob):
 
     xinit = x[:]
@@ -142,15 +151,13 @@ def calc_final_input(x, u, dw, config, ob):
 
     # evaluate all trajectory with sampled input in dynamic window
     for v in np.arange(dw[0], dw[1], config.v_reso):
-        #print(dw[0], dw[1])
         for w in np.arange(dw[2], dw[3], config.yawrate_reso):
             traj = calc_trajectory(xinit, v, w, config)
 
-            # calc cost
-            to_goal_cost = calc_to_goal_cost(traj, config)
+            # calc costs with weighted gains
+            to_goal_cost = calc_to_goal_cost(traj, config) * config.to_goal_cost_gain
             speed_cost = config.speed_cost_gain * \
                 (config.max_speed - traj[-1, 3])
-
 
             ob_cost = calc_obstacle_cost(traj, ob, config) * config.obs_cost_gain
 
@@ -160,23 +167,19 @@ def calc_final_input(x, u, dw, config, ob):
             if min_cost >= final_cost:
                 min_cost = final_cost
                 min_u = [v, w]
-    #print(min_u)
     return min_u
 
-
+# Calculate obstacle cost inf: collision, 0:free
 def calc_obstacle_cost(traj, ob, config):
-    # calc obstacle cost inf: collision, 0:free
-
     skip_n = 2
     minr = float("inf")
 
+    # Loop through every obstacle in set and calc Pythagorean distance
+    # Use robot radius to determine if collision
     for ii in range(0, len(traj[:, 1]), skip_n):
-        #for i in range(len(ob[:,0])):
         for i in ob.copy():
             ox = i[0]
             oy = i[1]
-            #ox = ob[i,0]
-            #oy = ob[i,1]
             dx = traj[ii, 0] - ox
             dy = traj[ii, 1] - oy
 
@@ -190,16 +193,17 @@ def calc_obstacle_cost(traj, ob, config):
 
     return 1.0 / minr
 
-
+# Calculate goal cost via Pythagorean distance to robot
 def calc_to_goal_cost(traj, config):
-    # calc to goal cost. It is 2D norm.
+    # If-Statements to determine negative vs positive goal/trajectory position
+    # traj[-1,0] is the last predicted X coord position on the trajectory
     if (config.goalX >= 0 and traj[-1,0] < 0):
         dx = config.goalX - traj[-1,0]
     elif (config.goalX < 0 and traj[-1,0] >= 0):
         dx = traj[-1,0] - config.goalX
     else:
         dx = abs(config.goalX - traj[-1,0])
-
+    # traj[-1,1] is the last predicted Y coord position on the trajectory
     if (config.goalY >= 0 and traj[-1,1] < 0):
         dy = config.goalY - traj[-1,1]
     elif (config.goalY < 0 and traj[-1,1] >= 0):
@@ -207,11 +211,10 @@ def calc_to_goal_cost(traj, config):
     else:
         dy = abs(config.goalY - traj[-1,1])
 
-    goal_dis = math.sqrt(dx**2 + dy**2)
-    cost = config.to_goal_cost_gain * goal_dis
+    cost = math.sqrt(dx**2 + dy**2)
     return cost
 
-
+# Begin DWA calculations
 def dwa_control(x, u, config, ob):
     # Dynamic Window control
 
@@ -221,6 +224,7 @@ def dwa_control(x, u, config, ob):
 
     return u
 
+# Determine whether the robot has reached its goal
 def atGoal(config, x):
     # check at goal
     if math.sqrt((x[0] - config.goalX)**2 + (x[1] - config.goalY)**2) \
@@ -240,7 +244,7 @@ def main():
     subGoal = rospy.Subscriber("/clicked_point", PointStamped, config.goalCB)
     pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
     speed = Twist()
-    # initial state [x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
+    # initial state [x(m), y(m), theta(rad), v(m/s), omega(rad/s)]
     x = np.array([config.x, config.y, config.th, 0.0, 0.0])
     # initial linear and angular velocities
     u = np.array([0.0, 0.0])
@@ -257,6 +261,7 @@ def main():
             speed.linear.x = x[3]
             speed.angular.z = x[4]
         else:
+            # if at goal then stay there until new goal published
             speed.linear.x = 0.0
             speed.angular.z = 0.0
 
