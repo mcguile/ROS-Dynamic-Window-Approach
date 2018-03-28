@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+
+# A custom Dynamic Window Approach implementation for use with Turtlebot.
+# Obstacles are registered by a front-mounted laser and stored in a set.
+# If, for testing purposes or otherwise, you do not want the laser to be used,
+# disable the laserscan subscriber and create your own obstacle set in main(),
+# before beginning the loop. If you do not want obstacles, create an empty set.
+# Implentation based off Fox et al.'s paper, The Dynamic Window Approach to 
+# Collision Avoidance (1997).
 import rospy
 import math
 import numpy as np
@@ -135,9 +143,10 @@ def calc_trajectory(xinit, v, y, config):
     traj = np.array(x)  # many motion models stored per trajectory
     time = 0
     while time <= config.predict_time:
+        # store each motion model along a trajectory
         x = motion(x, [v, y], config.dt)
         traj = np.vstack((traj, x))
-        time += config.dt
+        time += config.dt # next sample
 
     return traj
 
