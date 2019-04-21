@@ -81,6 +81,7 @@ class Obstacles():
             if (distance < 4):
                 # angle of obstacle wrt robot
                 # angle/2.844 is to normalise the 512 degrees in real world
+                # for simulation in Gazebo, use angle/4.0
                 # laser from 0 to 180
                 scanTheta = (angle/2.844 + deg*(-180.0/deg)+90.0) *math.pi/180.0
                 # angle of obstacle wrt global frame
@@ -96,6 +97,7 @@ class Obstacles():
                 # round coords to nearest 0.125m
                 obsX = round((config.x + (distance * math.cos(abs(objTheta))))*8)/8
                 # determine direction of Y coord
+                # if (objTheta < 0): # uncomment and comment line below for Gazebo simulation
                 if (objTheta > 0):
                     obsY = round((config.y - (distance * math.sin(abs(objTheta))))*8)/8
                 else:
