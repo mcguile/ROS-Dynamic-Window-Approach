@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+# basic obstacle avoidance - not used in DWA.
+
 import rospy, math
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
